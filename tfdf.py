@@ -6,12 +6,12 @@ from nltk.corpus import reuters, inaugural, gutenberg
 class Search:
     corpus = gutenberg
 
-
     def __init__(self):
         # self.index = self.inverse_index()
         self.df_dict = self.df()
         self.tf_dict = self.tf()
         self.tf_idf_dict = self.tf_idf()
+        self.doc_size_dict = self.doc_size()
         return
 
     # dictionary for w
@@ -47,39 +47,41 @@ class Search:
         print('df finished')
         return df_dict
 
+    def idf(self, term):
+        if self.df_dict[term.lower()] > len(self.corpus.fileids()):
+            print(term, self.df_dict[term.lower()])
+        return math.log(len(self.corpus.fileids()) / self.df_dict[term.lower()])
+
     def tf_idf(self):
-        def idf(self, term):
-            if self.df_dict[term.lower()] > len(self.corpus.fileids()):
-                print(term, self.df_dict[term.lower()])
-            return math.log(len(self.corpus.fileids()) / self.df_dict[term.lower()])
         tf_idf_dict = dict(self.tf_dict)
         for doc in self.tf_dict:
             tf_idf_dict[doc] = dict()
             for word in self.tf_dict[doc]:
-                tmp = idf(self,word)
-                tf_idf_dict[doc][word.lower()] = self.tf_dict[doc][word.lower()]*tmp
+                tmp = self.idf(word)
+                tf_idf_dict[doc][word.lower()] = self.tf_dict[doc][word.lower()] * tmp
         print('tf-idf finished')
 
         return tf_idf_dict
+
+    def doc_size(self):  # doc size is equal to sigma of all term frequencies squared
+        doc_size_dict = dict()
+        for doc_id in self.corpus.fileids():
+            sigma = 0
+            for word in self.tf_dict[doc_id]:
+                sigma += self.tf_dict[doc_id][word] ** 2
+            doc_size_dict[doc_id] = math.sqrt(sigma)
+        return doc_size_dict
 
     # query is a list of words that comprises search terms
     def doc_score(self, query, doc_id):
         score = 0
         for term in query:
-            if term.lower() in self.tf_idf_dict[doc_id]:
-                score += self.tf_idf_dict[doc_id][term.lower()]
+            if term.lower() in self.tf_dict[doc_id]:
+                score += (self.tf_dict[doc_id][term.lower()] / self.doc_size_dict[doc_id]) * self.idf(term.lower())
         return score
 
     def query_result(self, query):
-
         result = list()
         for doc_id in self.corpus.fileids():
             result.append((doc_id, self.doc_score(query, doc_id)))
-        return sorted(result, key = lambda x:x[1], reverse=True)
-
-
-
-
-
-
-
+        return sorted(result, key=lambda x: x[1], reverse=True)
